@@ -104,7 +104,7 @@ void doit(int fd)
       return;
     }
 
-    // 정적 서버에 파일의 사이즈를 같이 보낸다. -> Response header에 Content-length 위해!
+    // 정적 서버에 파일의 사이즈와 메서드를 같이 보낸다. -> Response header에 Content-length 위해!
     serve_static(fd, filename, sbuf.st_size, method);
   }
   else { /* Serve dynamic content */
@@ -115,7 +115,7 @@ void doit(int fd)
       return;
       }
 
-    // 동적 서버에 인자를 같이 보낸다.
+    // 동적 서버에 인자와 메서드를 같이 보낸다.
     serve_dynamic(fd, filename, cgiargs, method);
   }
 }

@@ -1,11 +1,13 @@
+
 /*
  * adder.c - a minimal CGI program that adds two numbers together
  */
 /* $begin adder */
+
 #include "csapp.h"
 
 int main(){
-    char *buf, *p;
+    char *buf, *p, *method;
     char arg1[MAXLINE], arg2[MAXLINE], content[MAXLINE];
     int n1=0, n2=0;
 
@@ -19,6 +21,9 @@ int main(){
         n2 = atoi(arg2);
     }
 
+    /* 환경 변수로 넣어둔 요청 메서드를 확인한다. */
+    method = getenv("REQUEST_METHOD");
+
     /* content라는 string에 응답 본체를 담는다. */
     sprintf(content, "QUERY_STRING=%s\r\n<p>", buf);  // ""안의 string이 content라는 string에 쓰인다.
     sprintf(content, "%sWelcome to add.com: ", content);
@@ -30,7 +35,11 @@ int main(){
     printf("Connection: close\r\n");
     printf("Content-length: %d\r\n", (int)strlen(content));
     printf("Conten-type: text/html\r\n\r\n");
-    printf("%s", content);  // 응답 본체를 클라이언트 표준 출력!
+
+    /* 메서드가 HEAD가 아닐 경우만 응답 본체를 출력한다. */
+    if (strcasecmp(method, "HEAD") != 0)
+        printf("%s", content);  // 응답 본체를 클라이언트 표준 출력!
+    
     fflush(stdout);
 
     exit(0);

@@ -14,9 +14,9 @@
 void doit(int fd);
 void read_requesthdrs(rio_t *rp);
 int parse_uri(char *uri, char *filename, char *cgiargs);
-void serve_static(int fd, char *filename, int filesize, char* method);
+void serve_static(int fd, char *filename, int filesize);
 void get_filetype(char *filename, char *filetype);
-void serve_dynamic(int fd, char *filename, char *cgiargs, char* method);
+void serve_dynamic(int fd, char *filename, char *cgiargs);
 void clienterror(int fd, char *cause, char *errnum, char *shortmsg,
                  char *longmsg);
 
@@ -73,8 +73,8 @@ void doit(int fd)
   printf("%s", buf);  // 요청 라인 buf = "GET /godzilla.gif HTTP/1.1\0"을 표준 출력만 해줌!
   sscanf(buf, "%s %s %s", method, uri, version); // buf에서 문자열 3개를 읽어와 method, uri, version이라는 문자열에 저장한다.
 
-  // 요청 method가 GET과 HEAD가 아니면 종료. main으로 가서 연결 닫고 다음 요청 기다림.
-  if (!(strcasecmp(method, "GET") == 0 || strcasecmp(method, "HEAD") == 0)) {  // method 스트링이 GET이 아니면 0이 아닌 값이 나옴
+  // 요청 method가 GET이 아니면 종료. main으로 가서 연결 닫고 다음 요청 기다림.
+  if (strcasecmp(method, "GET")) {  // method 스트링이 GET이 아니면 0이 아닌 값이 나옴
     clienterror(fd, method, "501", "Not implemented",
     "Tiny does not implement this method");
     return;
@@ -105,7 +105,7 @@ void doit(int fd)
     }
 
     // 정적 서버에 파일의 사이즈를 같이 보낸다. -> Response header에 Content-length 위해!
-    serve_static(fd, filename, sbuf.st_size, method);
+    serve_static(fd, filename, sbuf.st_size);
   }
   else { /* Serve dynamic content */
     // !(일반 파일이다) or !(실행 권한이 있다)
@@ -116,7 +116,7 @@ void doit(int fd)
       }
 
     // 동적 서버에 인자를 같이 보낸다.
-    serve_dynamic(fd, filename, cgiargs, method);
+    serve_dynamic(fd, filename, cgiargs);
   }
 }
 
@@ -221,7 +221,7 @@ int parse_uri(char *uri, char *filename, char *cgiargs)
   응답 라인과 헤더를 작성하고 서버에게 보낸다.
 
 */
-void serve_static(int fd, char *filename, int filesize, char* method)
+void serve_static(int fd, char *filename, int filesize)
 {
   int srcfd;
   char *srcp, filetype[MAXLINE], buf[MAXBUF];
@@ -240,17 +240,12 @@ void serve_static(int fd, char *filename, int filesize, char* method)
   printf("Response headers:\n");
   printf("%s", buf);  // 서버 측에서도 출력한다.
 
-  /* 만약 메서드가 HEAD라면, 응답 본체를 만들지 않고 끝낸다.*/
-  if (strcasecmp(method, "HEAD") == 0)
-    return;
-
   /* Send response body to client */
   srcfd = Open(filename, O_RDONLY, 0); // filename의 이름을 갖는 파일을 읽기 권한으로 불러온다.
-  srcp = (char*)Malloc(filesize);  // 파일 크기만큼의 메모리를 동적할당한다.
-  Rio_readn(srcfd, srcp, filesize);   // filename 내용을 동적할당한 메모리에 쓴다.
+  srcp = Mmap(0, filesize, PROT_READ, MAP_PRIVATE, srcfd, 0); // 메모리에 파일 내용을 동적할당한다.
   Close(srcfd); // 파일을 닫는다.
-  Rio_writen(fd, srcp, filesize);  // 해당 메모리에 있는 파일 내용들을 클라이언트에 보낸다(읽는다).
-  free(srcp);
+  Rio_writen(fd, srcp, filesize);  // 해당 메모리에 있는 파일 내용들을 fd에 보낸다(읽는다).
+  Munmap(srcp, filesize);
 }
 
 /*
@@ -280,7 +275,7 @@ void get_filetype(char *filename, char *filetype)
   응답 라인과 헤더를 작성하고 서버에게 보낸다. 
   CGI 자식 프로세스를 fork하고 그 프로세스의 표준 출력을 클라이언트 출력과 연결한다.
 */
- void serve_dynamic(int fd, char *filename, char *cgiargs, char* method)
+ void serve_dynamic(int fd, char *filename, char *cgiargs)
 {
   char buf[MAXLINE], *emptylist[] = { NULL };
   /* Return first part of HTTP response */
@@ -291,10 +286,7 @@ void get_filetype(char *filename, char *filetype)
 
   if (Fork() == 0) { /* Child */
     /* Real server would set all CGI vars here */
-    setenv("QUERY_STRING", cgiargs, 1);
-
-    /* 요청 메서드를 환경변수에 추가한다. */
-    setenv("REQUEST_METHOD", method, 1);
+    setenv("QUERY_STRING", cgiargs, 1);  // 
 
     // clientfd 출력을 CGI 프로그램의 표준 출력과 연결한다.
     // CGI 프로그램에서 printf하면 클라이언트에서 출력됨!!
