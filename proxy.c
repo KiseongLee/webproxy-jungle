@@ -55,7 +55,7 @@ typedef struct
 typedef struct
 {
   cache_block cacheobjs[CACHE_OBJS_COUNT];  // ten cache blocks
-  int cache_num;    //캐시(10개) 넘버 부여 (사용되는 곳이 없어서 삭제해도 무방)
+  int cache_num;    // 캐시(10개) 넘버 부여
 } Cache;
 
 Cache cache;
