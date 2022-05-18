@@ -2,7 +2,7 @@
 #include "csapp.h"
 
 /* Recommended max cache and object sizes */
-#define MAX_CACHE_SIZE 1024000
+#define MAX_CACHE_SIZE 1049000
 #define MAX_OBJECT_SIZE 102400
 #define LRU_MAGIC_NUMBER 9999
 // Least Recently Used
@@ -77,6 +77,12 @@ int main(int argc, char **argv) {
   }
   Signal(SIGPIPE, SIG_IGN);
   // 특정 클라이언트가 종료되어있다고 해서 남은 클라이언트가에 영향가지않게 그 한쪽 종료됐다는 시그널을 무시해라.
+  /* 클라이언트를 여러개 받고 서버랑 연결하는데, 만약 정상적인 커넥션과 클로즈를 한다면 소켓을 받으면서 다 닫는 것 까지가 프로세스 과정인데,
+    그건 정상적인 과정이니 문제가 안생김. but 클라이언트에서 정상적이지 않은 종료를 해서 소켓이 자기 혼자 닫히거나 사라졌을 때
+    서버에서 그 소켓에 접근하려고 할 때 그 소켓에 대해 writen하려고 할 때 response를 보낼 수 있음. 
+    그러면 시그널에서 잘못됐다는 시그널을 보내는데 그 보내는 시그널은 받으면 원래는 프로세스가 전체 종료가 됨.
+    하지만 이 프로세스는 현재 다른 여러 클라이언트들과도 연결되어있는 상태기 때문에 하나 종료됐다고 해서 다 꺼버리면 안되니까
+    그런 시그널을 무시해라, 라는 함수. SIG_IGN : signal ignore */
   listenfd = Open_listenfd(argv[1]);
   while (1) {
     clientlen = sizeof(clientaddr);
@@ -360,7 +366,7 @@ void cache_LRU(int index) {
 
 // cache the uri and content in cache
 void cache_uri(char *uri, char *buf) {
-  int i = cache_eviction(); // LRU로 교체해야할 minindex
+  int i = cache_eviction();
   
   writePre(i);
 
